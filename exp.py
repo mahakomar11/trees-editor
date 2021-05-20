@@ -33,8 +33,8 @@ cytoscape_stylesheet = [
 ]
 
 ################ Load Google Sheets ####################
-# gc = gspread.service_account()
-# spread = gc.open('Cell_hierarchy.004')
+gc = gspread.service_account()
+spread = gc.open('Cell_hierarchy_unstable')
 
 tree_names = ['big_tree', 'Myeloid_cells', 'B_cells', 'CD4', 'CD8', 'gd_NK_NKT']
 
@@ -42,12 +42,12 @@ tree_names = ['big_tree', 'Myeloid_cells', 'B_cells', 'CD4', 'CD8', 'gd_NK_NKT']
 trees_info = {}
 for tree_name in tree_names:
     trees_info[tree_name] = {}
-    # trees_info[tree_name]['url'] = \
-    #  f'https://docs.google.com/spreadsheets/d/{spread.id}/edit#gid={spread.worksheet(tree_name).id}'
-    trees_info[tree_name]['url'] = 'url'
-    # trees_info[tree_name]['tree'] = read_sheet(spread, tree_name).set_index('BG_population')
-    trees_info[tree_name]['tree'] = pd.read_excel('Cell_hierarchy.004.xlsx', sheet_name=tree_name) \
-        .set_index('BG_population')
+    trees_info[tree_name]['url'] = \
+        f'https://docs.google.com/spreadsheets/d/{spread.id}/edit#gid={spread.worksheet(tree_name).id}'
+    # trees_info[tree_name]['url'] = 'url'
+    trees_info[tree_name]['tree'] = read_sheet(spread, tree_name).set_index('BG_population')
+    # trees_info[tree_name]['tree'] = pd.read_excel('Cell_hierarchy.004.xlsx', sheet_name=tree_name) \
+    #     .set_index('BG_population')
 
 
 ################ Functions ####################
@@ -59,8 +59,8 @@ def write_positions_tree(tree, tree_name):
     """
     tree_to_write = tree.reset_index()
     tree_to_write = tree_to_write[['index', 'BG_population', 'Parent', 'posX', 'posY', 'BG_label']]
-    # write_to_sheet(spread, tree_name, tree_to_write, to_rewrite=False)
-    tree_to_write.to_excel(sheet_name=tree_name)
+    write_to_sheet(spread, tree_name, tree_to_write, to_rewrite=False)
+    # tree_to_write.to_excel(sheet_name=tree_name)
 
 
 def change_positions_in_tree(elements, tree):
@@ -200,5 +200,5 @@ for tab in tree_names:
                    new_tree.reset_index().drop('index', axis=1).to_dict('records')
 
 if __name__ == '__main__':
-    # app.run_server(host='0.0.0.0', debug=True, dev_tools_hot_reload=True)
-    app.run_server(debug=True, dev_tools_hot_reload=True)
+    app.run_server(host='0.0.0.0', debug=True, dev_tools_hot_reload=True)
+    # app.run_server(debug=True, dev_tools_hot_reload=True)
