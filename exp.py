@@ -33,8 +33,8 @@ cytoscape_stylesheet = [
 ]
 
 ################ Load Google Sheets ####################
-gc = gspread.service_account()
-spread = gc.open('Cell_hierarchy_unstable')
+# gc = gspread.service_account()
+# spread = gc.open('Cell_hierarchy.004')
 
 tree_names = ['big_tree', 'Myeloid_cells', 'B_cells', 'CD4', 'CD8', 'gd_NK_NKT']
 
@@ -42,9 +42,12 @@ tree_names = ['big_tree', 'Myeloid_cells', 'B_cells', 'CD4', 'CD8', 'gd_NK_NKT']
 trees_info = {}
 for tree_name in tree_names:
     trees_info[tree_name] = {}
-    trees_info[tree_name]['url'] = \
-        f'https://docs.google.com/spreadsheets/d/{spread.id}/edit#gid={spread.worksheet(tree_name).id}'
-    trees_info[tree_name]['tree'] = read_sheet(spread, tree_name).set_index('BG_population')
+    # trees_info[tree_name]['url'] = \
+    #  f'https://docs.google.com/spreadsheets/d/{spread.id}/edit#gid={spread.worksheet(tree_name).id}'
+    trees_info[tree_name]['url'] = 'url'
+    # trees_info[tree_name]['tree'] = read_sheet(spread, tree_name).set_index('BG_population')
+    trees_info[tree_name]['tree'] = pd.read_excel('Cell_hierarchy.004.xlsx', sheet_name=tree_name) \
+        .set_index('BG_population')
 
 
 ################ Functions ####################
@@ -56,7 +59,8 @@ def write_positions_tree(tree, tree_name):
     """
     tree_to_write = tree.reset_index()
     tree_to_write = tree_to_write[['index', 'BG_population', 'Parent', 'posX', 'posY', 'BG_label']]
-    write_to_sheet(spread, tree_name, tree_to_write)
+    # write_to_sheet(spread, tree_name, tree_to_write, to_rewrite=False)
+    tree_to_write.to_excel(sheet_name=tree_name)
 
 
 def change_positions_in_tree(elements, tree):
@@ -102,7 +106,7 @@ def create_cytoscape_elements(tree):
 
 
 ################ Dash Layout ####################
-app.layout = html.Div([dcc.Tabs(id='tabs', value='big_tree', children=[
+app.layout = html.Div([dcc.Tabs(    id='tabs', value='big_tree', children=[
     dcc.Tab(label='Main tree', value='big_tree'),
     dcc.Tab(label='Myeloid cells', value='Myeloid_cells'),
     dcc.Tab(label='B cells', value='B_cells'),
@@ -123,65 +127,78 @@ def render_content(tab):
     elements = create_cytoscape_elements(trees_info[tab]['tree'])
     url = trees_info[tab]['url']
 
+    return _render_content_tab(tab, elements, url)
+
+
+def _render_content_tab(tab, elements, url):
+    """
+    Create <div> adding tab to ids of children.
+    tab: name of tab = name of tree
+    elements: dict, argument for cyto.Cytoscape
+    url: str, link to tree to show
+    """
     return html.Div([
         html.Div('Drag nodes and when you like the tree, press "Save positions"', style={
             'font-size': '24px'
         }),
         cyto.Cytoscape(
-            id=f'nodes',
+            id=f'nodes-{tab}',
             layout={'name': 'preset'},
-            style={'width': '100%', 'height': '70vh'},
+            style={'width': '80%', 'height': '70vh',
+                   'border': '1px black solid',
+                   'margin': '10px auto 10px'},
             elements=elements,
             boxSelectionEnabled=True,
+            minZoom=0.5,
             stylesheet=cytoscape_stylesheet
         ),
         html.Div('Spreadsheet with positions:'),
         html.A(href=url, children=url, target='_blank', style={
             'margin-bottom': '20px'
         }),
-        html.Div(id=f'message'),
-        html.Button(id=f'submit', n_clicks=0, children='Save positions', style={
+        html.Div(id=f'message-{tab}'),
+        html.Button(id=f'submit-{tab}', n_clicks=0, children='Save positions', style={
             'width': '200px',
             'margin-bottom': '20px'
         }),
-        dash_table.DataTable(id=f'table'),
-        dcc.Store(id=f'store-tree')
+        dash_table.DataTable(id=f'table-{tab}'),
     ], style={
         'display': 'flex',
         'flex-direction': 'column'
     })
 
 
-@app.callback(Output('message', 'children'),
-              Output('table', 'columns'),
-              Output('table', 'data'),
-              Input('submit', 'n_clicks'),
-              State('nodes', 'elements'),
-              State('tabs', 'value'))
-def save_nodes_positions(n_clicks, elements, tab):
-    """
-    Print new positions in table and write its to Google Sheet.
-    n_clicks: number of clicks on submit button
-    elements: state of elements of Cytoscape component
-    tab: name of opened tab = name of tree
-    :return:
-        message to display
-        columns for table
-        data for table
-    """
-    tree = trees_info[tab]['tree']
-    if n_clicks != 0:
-        new_tree = change_positions_in_tree(elements, tree)
-        # write_positions_tree(new_tree, tab)
-        return 'Positions saved', \
-               [{"name": i, "id": i} for i in new_tree.reset_index().drop('index', axis=1).columns], \
-               new_tree.reset_index().drop('index', axis=1).to_dict('records')
-    else:
-        new_tree = tree.copy()
-        return 'Press button to save positions of nodes', \
-               [{"name": i, "id": i} for i in new_tree.reset_index().drop('index', axis=1).columns], \
-               new_tree.reset_index().drop('index', axis=1).to_dict('records')
-
+for tab in tree_names:
+    @app.callback(Output(f'message-{tab}', 'children'),
+                  Output(f'table-{tab}', 'columns'),
+                  Output(f'table-{tab}', 'data'),
+                  Input(f'submit-{tab}', 'n_clicks'),
+                  State(f'nodes-{tab}', 'elements'),
+                  State(f'tabs', 'value'))
+    def save_nodes_positions(n_clicks, elements, tab):
+        """
+        Print new positions in table and write its to Google Sheet.
+        n_clicks: number of clicks on submit button
+        elements: state of elements of Cytoscape component
+        tab: name of opened tab = name of tree
+        :return:
+            message to display
+            columns for table
+            data for table
+        """
+        tree = trees_info[tab]['tree']
+        if n_clicks != 0:
+            new_tree = change_positions_in_tree(elements, tree)
+            # write_positions_tree(new_tree, tab)
+            return 'Positions saved', \
+                   [{"name": i, "id": i} for i in new_tree.reset_index().drop('index', axis=1).columns], \
+                   new_tree.reset_index().drop('index', axis=1).to_dict('records')
+        else:
+            new_tree = tree.copy()
+            return 'Press button to save positions of nodes', \
+                   [{"name": i, "id": i} for i in new_tree.reset_index().drop('index', axis=1).columns], \
+                   new_tree.reset_index().drop('index', axis=1).to_dict('records')
 
 if __name__ == '__main__':
-    app.run_server(host='0.0.0.0', debug=True, dev_tools_hot_reload=True)
+    # app.run_server(host='0.0.0.0', debug=True, dev_tools_hot_reload=True)
+    app.run_server(debug=True, dev_tools_hot_reload=True)
