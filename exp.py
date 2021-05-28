@@ -2,13 +2,14 @@ import dash
 import dash_cytoscape as cyto
 import dash_html_components as html
 import dash_core_components as dcc
-import numpy as np
-from utils import read_sheet, write_to_sheet
 from dash.dependencies import Input, Output, State
-import json
-import pandas as pd
-import gspread
 import dash_table
+import numpy as np
+# from googlesheets_utils import SpreadTable
+from excel_utils import ExcelTable
+
+# Load table
+table = ExcelTable('Cell_hierarchy_try.xlsx')
 
 app = dash.Dash(__name__, suppress_callback_exceptions=True)
 
@@ -32,22 +33,20 @@ cytoscape_stylesheet = [
     }
 ]
 
-################ Load Google Sheets ####################
-gc = gspread.service_account()
-spread = gc.open('Cell_hierarchy_unstable')
-
+################ Load Sheets ####################
 tree_names = ['big_tree', 'Myeloid_cells', 'B_cells', 'CD4', 'CD8', 'gd_NK_NKT']
-
 # Create dictionary with sheets trees and urls
 trees_info = {}
 for tree_name in tree_names:
     trees_info[tree_name] = {}
-    trees_info[tree_name]['url'] = \
-        f'https://docs.google.com/spreadsheets/d/{spread.id}/edit#gid={spread.worksheet(tree_name).id}'
-    # trees_info[tree_name]['url'] = 'url'
-    trees_info[tree_name]['tree'] = read_sheet(spread, tree_name).set_index('BG_population')
-    # trees_info[tree_name]['tree'] = pd.read_excel('Cell_hierarchy.004.xlsx', sheet_name=tree_name) \
-    #     .set_index('BG_population')
+    trees_info[tree_name]['tree'] = table.read_sheet(tree_name).set_index('BG_population')
+    # Add url or path
+    if hasattr(table , 'spread'):
+        trees_info[tree_name]['url'] = \
+            f'https://docs.google.com/spreadsheets/d/{table.spread.id}/edit#gid={table.spread.worksheet(tree_name).id}'
+    else:
+        trees_info[tree_name]['url'] = table.path
+
 
 
 ################ Functions ####################
@@ -59,8 +58,7 @@ def write_positions_tree(tree, tree_name):
     """
     tree_to_write = tree.reset_index()
     tree_to_write = tree_to_write[['index', 'BG_population', 'Parent', 'posX', 'posY', 'BG_label']]
-    write_to_sheet(spread, tree_name, tree_to_write, to_rewrite=False)
-    # tree_to_write.to_excel(sheet_name=tree_name)
+    table.write_to_sheet(tree_name, tree_to_write)
 
 
 def change_positions_in_tree(elements, tree):
@@ -106,7 +104,7 @@ def create_cytoscape_elements(tree):
 
 
 ################ Dash Layout ####################
-app.layout = html.Div([dcc.Tabs(    id='tabs', value='big_tree', children=[
+app.layout = html.Div([dcc.Tabs(id='tabs', value='big_tree', children=[
     dcc.Tab(label='Main tree', value='big_tree'),
     dcc.Tab(label='Myeloid cells', value='Myeloid_cells'),
     dcc.Tab(label='B cells', value='B_cells'),
@@ -132,7 +130,7 @@ def render_content(tab):
 
 def _render_content_tab(tab, elements, url):
     """
-    Create <div> adding tab to ids of children.
+    Create <div> with adding tab to ids of children.
     tab: name of tab = name of tree
     elements: dict, argument for cyto.Cytoscape
     url: str, link to tree to show
@@ -189,7 +187,7 @@ for tab in tree_names:
         tree = trees_info[tab]['tree']
         if n_clicks != 0:
             new_tree = change_positions_in_tree(elements, tree)
-            # write_positions_tree(new_tree, tab)
+            write_positions_tree(new_tree, tab)
             return 'Positions saved', \
                    [{"name": i, "id": i} for i in new_tree.reset_index().drop('index', axis=1).columns], \
                    new_tree.reset_index().drop('index', axis=1).to_dict('records')
@@ -200,5 +198,5 @@ for tab in tree_names:
                    new_tree.reset_index().drop('index', axis=1).to_dict('records')
 
 if __name__ == '__main__':
-    app.run_server(host='0.0.0.0', debug=True, dev_tools_hot_reload=True)
-    # app.run_server(debug=True, dev_tools_hot_reload=True)
+    # app.run_server(host='0.0.0.0', debug=True, dev_tools_hot_reload=True)
+    app.run_server(debug=True, dev_tools_hot_reload=True)
