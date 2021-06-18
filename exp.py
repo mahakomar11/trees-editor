@@ -5,11 +5,12 @@ import dash_core_components as dcc
 from dash.dependencies import Input, Output, State
 import dash_table
 import numpy as np
-# from googlesheets_utils import SpreadTable
-from excel_utils import ExcelTable
+from googlesheets_utils import SpreadTable
+# from excel_utils import ExcelTable
 
 # Load table
-table = ExcelTable('Cell_hierarchy_try.xlsx')
+# table = ExcelTable('Cell_hierarchy_try.xlsx')
+table = SpreadTable('Cell_hierarchy.005_exp')
 
 app = dash.Dash(__name__, suppress_callback_exceptions=True)
 
@@ -34,19 +35,20 @@ cytoscape_stylesheet = [
 ]
 
 ################ Load Sheets ####################
-tree_names = ['big_tree', 'Myeloid_cells', 'B_cells', 'CD4', 'CD8', 'gd_NK_NKT']
+tree_names = ['General', 'Main_cells', 'Myeloid_cells', 'B_cells', 'CD4_differentiation_lineage',
+              'CD4_activation_stage',
+              'CD8_differentiation_lineage', 'CD8_activation_stage', 'NK, NKT, GAMMA-DELTA AND MAIT']
 # Create dictionary with sheets trees and urls
 trees_info = {}
 for tree_name in tree_names:
     trees_info[tree_name] = {}
     trees_info[tree_name]['tree'] = table.read_sheet(tree_name).set_index('BG_population')
     # Add url or path
-    if hasattr(table , 'spread'):
+    if hasattr(table, 'spread'):
         trees_info[tree_name]['url'] = \
             f'https://docs.google.com/spreadsheets/d/{table.spread.id}/edit#gid={table.spread.worksheet(tree_name).id}'
     else:
         trees_info[tree_name]['url'] = table.path
-
 
 
 ################ Functions ####################
@@ -74,6 +76,8 @@ def change_positions_in_tree(elements, tree):
         bg_pop = el['data']['id']
         pos_x = el['position']['x']
         pos_y = el['position']['y']
+        if isinstance(pos_x, str):
+            print(pos_x)
         tree.at[bg_pop, 'posX'] = round(pos_x, 2)
         tree.at[bg_pop, 'posY'] = - round(pos_y, 2)
     return tree
@@ -104,13 +108,16 @@ def create_cytoscape_elements(tree):
 
 
 ################ Dash Layout ####################
-app.layout = html.Div([dcc.Tabs(id='tabs', value='big_tree', children=[
-    dcc.Tab(label='Main tree', value='big_tree'),
+app.layout = html.Div([dcc.Tabs(id='tabs', value='General', children=[
+    dcc.Tab(label='General tree', value='General'),
+    dcc.Tab(label='Main cells', value='Main_cells'),
     dcc.Tab(label='Myeloid cells', value='Myeloid_cells'),
     dcc.Tab(label='B cells', value='B_cells'),
-    dcc.Tab(label='CD4', value='CD4'),
-    dcc.Tab(label='CD8', value='CD8'),
-    dcc.Tab(label='gd, NK, NKT', value='gd_NK_NKT')]),
+    dcc.Tab(label='CD4 diff', value='CD4_differentiation_lineage'),
+    dcc.Tab(label='CD4 act', value='CD4_activation_stage'),
+    dcc.Tab(label='CD8 diff', value='CD8_differentiation_lineage'),
+    dcc.Tab(label='CD8 act', value='CD8_activation_stage'),
+    dcc.Tab(label='gd, NK, NKT', value='NK, NKT, GAMMA-DELTA AND MAIT')]),
                        html.Div(id='tabs-content')])
 
 
@@ -147,7 +154,7 @@ def _render_content_tab(tab, elements, url):
                    'margin': '10px auto 10px'},
             elements=elements,
             boxSelectionEnabled=True,
-            minZoom=0.5,
+            minZoom=0.1,
             stylesheet=cytoscape_stylesheet
         ),
         html.Div('Spreadsheet with positions:'),

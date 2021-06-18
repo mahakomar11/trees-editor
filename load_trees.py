@@ -1,6 +1,6 @@
 from random import randrange
-# from googlesheets_utils import SpreadTable
-from excel_utils import ExcelTable
+from googlesheets_utils import SpreadTable
+# from excel_utils import ExcelTable
 
 
 def update_tree(tree, subtree_hierarchy):
@@ -35,8 +35,8 @@ def update_tree(tree, subtree_hierarchy):
     new_tree = new_tree.reset_index()[['index', 'BG_population', 'Parent', 'BG_label']]
     # For pairs ('BG_population', 'Parent') that has coords, add coords
     new_tree_pos = new_tree.merge(tree.reset_index(), how='left', on=['BG_population', 'Parent'])
-    new_tree_pos = new_tree_pos[['index_x', 'BG_population', 'Parent', 'posX', 'posY', 'BG_label_x']]\
-        .rename(columns={'index_x': 'index', 'BG_label_x': 'BG_label'})\
+    new_tree_pos = new_tree_pos[['index_x', 'BG_population', 'Parent', 'posX', 'posY', 'BG_label_x']] \
+        .rename(columns={'index_x': 'index', 'BG_label_x': 'BG_label'}) \
         .fillna('')
 
     return new_tree_pos
@@ -55,7 +55,6 @@ def fill_coords(tree):
     not_empty_parent = empty_pops[(~empty_pops['Parent'].isin(empty_pops.index))
                                   & (empty_pops['Parent'].isin(tree.index))]
 
-
     # While there are no populations for which we can calculate position from parent's position
     while len(not_empty_parent) != 0:
         for bg_pop, row in not_empty_parent.iterrows():
@@ -72,11 +71,14 @@ def fill_coords(tree):
 
 if __name__ == '__main__':
     # Load table
-    table = ExcelTable('Cell_hierarchy_try.xlsx')
+    # table = ExcelTable('Cell_hierarchy_try.xlsx')
+    table = SpreadTable('Cell_hierarchy.004')
 
     # tree_names = ['big_tree', 'Myeloid_cells', 'B_cells', 'CD4', 'CD8', 'gd_NK_NKT']
     # tree_names = ['big_tree']
-    tree_names = ['B_cells']
+    # tree_names = ['B_cells']
+    tree_names = ['Main_cells', 'Myeloid_cells', 'B_cells', 'CD4_differentiation', 'CD4_activation',
+                  'CD8_differentiation', 'CD8_activation', 'gd_NK_NKT']
     for tree_name in tree_names:
         print(tree_name)
         # Read existed tree
