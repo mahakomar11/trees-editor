@@ -16,8 +16,11 @@ def write_to_sheet(spread, sheet, df, with_index=False, to_rewrite=True):
 
 
 class SpreadTable:
-    def __init__(self, name : str):
-        gc = gspread.service_account()
+    def __init__(self, name: str, credentials_path=None):
+        if credentials_path is None:
+            gc = gspread.service_account()
+        else:
+            gc = gspread.service_account(filename=credentials_path)
         self.spread = gc.open(name)
 
     def read_sheet(self, sheet_name: str) -> pd.DataFrame:
